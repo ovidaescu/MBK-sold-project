@@ -5,8 +5,29 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+import csv
+import io
+
 st.set_page_config(page_title="EDA SEN - Sold Import/Export", layout="wide")
 
+
+
+# custom csv reader pentru a gestiona multiple encodări și a evita erorile de citire
+def load_any_file(file_source):
+    if hasattr(file_source, "name"):
+        name = file_source.name.lower()
+    else:
+        name = str(file_source).lower()
+
+    if name.endswith(".xlsx") or name.endswith(".xls"):
+        if hasattr(file_source, "seek"):
+            file_source.seek(0)
+        return pd.read_excel(file_source)
+
+    # Fallback CSV
+    if hasattr(file_source, "seek"):
+        file_source.seek(0)
+    return pd.read_csv(file_source, sep=None, engine="python")
 
 # ----------------------------------------------------
 # 1. FUNCȚII DE ÎNCĂRCARE ȘI PROCESARE DATE
@@ -122,17 +143,17 @@ def get_synthetic_data() -> pd.DataFrame:
 # ----------------------------------------------------
 st.sidebar.header("📁 Sursă Date")
 uploaded_file = st.sidebar.file_uploader(
-    "Încarcă CSV Transelectrica (opțional)", type=["csv", "xlsx"]
+    "Încarcă fișier Transelectrica (Excel sau CSV)", type=["xlsx", "xls", "csv"]
 )
 
 DEFAULT_FILE = "sen_istoric_1an.csv"
 
 if uploaded_file is not None:
-    raw_df = pd.read_csv(uploaded_file, sep=None, engine="python")
+    raw_df = load_any_file(uploaded_file)
     df_all = process_data(raw_df)
     st.sidebar.success("Fișier încărcat manual!")
 elif os.path.exists(DEFAULT_FILE):
-    raw_df = pd.read_csv(DEFAULT_FILE, sep=None, engine="python")
+    raw_df = load_any_file(DEFAULT_FILE)
     df_all = process_data(raw_df)
     st.sidebar.info(f"Se utilizează setul local: `{DEFAULT_FILE}`")
 else:
