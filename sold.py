@@ -7,6 +7,7 @@ import streamlit as st
 
 import csv
 import io
+from datetime import datetime, timedelta
 
 st.set_page_config(page_title="EDA SEN - Sold Import/Export", layout="wide")
 
@@ -171,10 +172,11 @@ if df_all is None or df_all.empty:
 # ----------------------------------------------------
 # 3. FILTRARE PE INTERVAL DE TIMP
 # ----------------------------------------------------
-min_date = df_all["timestamp"].min().date()
-max_date = df_all["timestamp"].max().date()
+min_timestamp = df_all["timestamp"].min()
+max_timestamp = df_all["timestamp"].max()
 
-
+min_date = min_timestamp.date()
+max_date = max_timestamp.date()
 
 st.sidebar.header("📅 Filtrare Perioadă")
 
@@ -190,16 +192,43 @@ date_range = st.sidebar.date_input(
     key=calendar_key
 )
 
+
+start_time = st.sidebar.time_input(
+    "Ora de început",
+    value=min_timestamp.time().replace(second=0, microsecond=0),
+)
+
+end_time = st.sidebar.time_input(
+    "Ora de sfârșit",
+    value=max_timestamp.time().replace(second=0, microsecond=0),
+)
+
 if isinstance(date_range, tuple) and len(date_range) == 2:
-    start_d, end_d = date_range
+    start_date, end_date = date_range
+
+    start_datetime = datetime.combine(start_date, start_time)
+    end_datetime = datetime.combine(end_date, end_time)
+
+    if start_datetime > end_datetime:
+        st.error("Ora de început trebuie să fie înaintea orei de sfârșit.")
+        st.stop()
+
+    # Include the complete selected ending minute
+    end_datetime_exclusive = end_datetime + timedelta(minutes=1)
+
     df = df_all[
-        (df_all["timestamp"].dt.date >= start_d)
-        & (df_all["timestamp"].dt.date <= end_d)
+        (df_all["timestamp"] >= start_datetime)
+        & (df_all["timestamp"] < end_datetime_exclusive)
     ].copy()
 else:
-    #df = df_all.copy()
-    st.info("👆 Te rog să selectezi o perioadă completă (dată de început și dată de sfârșit).")
+    st.info("Selectează o dată de început și una de sfârșit.")
     st.stop()
+
+st.sidebar.info(
+    f"Interval selectat:\n\n"
+    f"**{start_datetime:%d-%m-%Y %H:%M}** - "
+    f"**{end_datetime:%d-%m-%Y %H:%M}**"
+)
 
 # debugs for the dates inside the root file
 # st.sidebar.write(f"🔍 **Debug Min Date:** {min_date}")
@@ -323,4 +352,3 @@ with col_i:
     st.write(f"**Data / Ora:** {row_imp['timestamp']}")
     st.write(f"**Consum:** {row_imp.get('consum', 'N/A')} MW")
     st.write(f"**Producție totală:** {row_imp.get('productie', 'N/A')} MW")
-    st.write(f"**Eolian:** {row_imp.get('eolian', 0):.1f} MW | **Foto:** {row_imp.get('foto', 0):.1f} MW")
