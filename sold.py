@@ -147,7 +147,7 @@ uploaded_file = st.sidebar.file_uploader(
     "Încarcă fișier Transelectrica (Excel sau CSV)", type=["xlsx", "xls", "csv"]
 )
 
-DEFAULT_FILE = "Grafic_SEN_20225.csv"
+DEFAULT_FILE = "Grafic_SEN_2025.csv"
 
 df_all = None   
 
@@ -174,12 +174,20 @@ if df_all is None or df_all.empty:
 min_date = df_all["timestamp"].min().date()
 max_date = df_all["timestamp"].max().date()
 
+
+
 st.sidebar.header("📅 Filtrare Perioadă")
+
+# Creăm o cheie unică bazată pe limitele fișierului
+# Dacă schimbi fișierul, cheia se schimbă, iar Streamlit resetează complet calendarul
+calendar_key = f"date_picker_{min_date}_{max_date}"
+
 date_range = st.sidebar.date_input(
     "Selectează intervalul",
     value=(min_date, max_date),
     min_value=min_date,
     max_value=max_date,
+    key=calendar_key
 )
 
 if isinstance(date_range, tuple) and len(date_range) == 2:
@@ -189,7 +197,13 @@ if isinstance(date_range, tuple) and len(date_range) == 2:
         & (df_all["timestamp"].dt.date <= end_d)
     ].copy()
 else:
-    df = df_all.copy()
+    #df = df_all.copy()
+    st.info("👆 Te rog să selectezi o perioadă completă (dată de început și dată de sfârșit).")
+    st.stop()
+
+# debugs for the dates inside the root file
+# st.sidebar.write(f"🔍 **Debug Min Date:** {min_date}")
+# st.sidebar.write(f"🔍 **Debug Max Date:** {max_date}")
 
 st.title("⚡ SEN România: Analiza Soldului Energetic (Import / Export)")
 
