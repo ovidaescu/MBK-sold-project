@@ -96,6 +96,7 @@ def process_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+# function to generate synthetic data for demonstration purposes
 @st.cache_data
 def get_synthetic_data() -> pd.DataFrame:
     """Generează un set de date demonstrativ pe 1 an în absența unui fișier local."""
@@ -146,7 +147,9 @@ uploaded_file = st.sidebar.file_uploader(
     "Încarcă fișier Transelectrica (Excel sau CSV)", type=["xlsx", "xls", "csv"]
 )
 
-DEFAULT_FILE = "sen_istoric_1an.csv"
+DEFAULT_FILE = "Grafic_SEN_20225.csv"
+
+df_all = None   
 
 if uploaded_file is not None:
     raw_df = load_any_file(uploaded_file)
@@ -156,9 +159,14 @@ elif os.path.exists(DEFAULT_FILE):
     raw_df = load_any_file(DEFAULT_FILE)
     df_all = process_data(raw_df)
     st.sidebar.info(f"Se utilizează setul local: `{DEFAULT_FILE}`")
-else:
-    df_all = process_data(get_synthetic_data())
-    st.sidebar.warning("⚠️ Se utilizează date generate (pune fișierul în folder).")
+#else: mock data if no file is found in root or uploaded by the user
+    #df_all = process_data(get_synthetic_data())
+    #st.sidebar.warning("⚠️ Se utilizează date generate (pune fișierul în folder).")
+
+
+if df_all is None or df_all.empty:
+    st.warning("⚠️ Nu a fost găsit niciun set de date. Te rog să încarci un fișier din meniul lateral pentru a continua.")
+    st.stop() # Această comandă oprește scriptul aici. Nu va mai rula nimic mai jos!
 
 # ----------------------------------------------------
 # 3. FILTRARE PE INTERVAL DE TIMP
