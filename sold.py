@@ -1,243 +1,283 @@
+import os
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import requests
 import streamlit as st
 
-# Endpoint-ul direct sau parsarea exportului CSV de la Transelectrica
-DATA_URL = "https://www.transelectrica.ro/widget/web/tel/sen-grafic/-/SENGrafic_WAR_SENGraficportlet"
+st.set_page_config(page_title="EDA SEN - Sold Import/Export", layout="wide")
 
 
-@st.cache_data(ttl=3600)
-def load_data(start_date, end_date):
-    """Exemplu de încărcare/parsare a datelor.
+# ----------------------------------------------------
+# 1. FUNCȚII DE ÎNCĂRCARE ȘI PROCESARE DATE
+# ----------------------------------------------------
+@st.cache_data
+def process_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalizează coloanele și calculează variabilele derivate."""
+    # Normalizare nume coloane
+    df.columns = (
+        df.columns.str.strip()
+        .str.lower()
+        .str.replace(r"\[.*\]", "", regex=True)
+        .str.strip()
+    )
 
-    Dacă folosești un CSV descărcat sau API intern, adaptează maparea
-    coloanelor.
-    """
-    # Exemplu de descărcare date (sau încărcare din fișier local/repo)
-    # df = pd.read_csv('date_sen.csv') # Alternativă locală
-    try:
-        response = requests.get(
-            DATA_URL,
-            params={"start": start_date, "end": end_date},
-            timeout=30,
-        )
-        response.raise_for_status()
-        df = pd.DataFrame(response.json())
-    except Exception:
-        # Fallback demonstrativ dacă API-ul extern nu răspunde direct
-        st.warning("Se utilizează structura standard de coloane Transelectrica.")
-        return pd.DataFrame()
-
-    # Parsare timestamp
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df = df.sort_values("timestamp")
-
-    # Conversie numerică
-    cols = [
-        "consum",
-        "productie",
-        "eolian",
-        "foto",
-        "hidro",
-        "nuclear",
-        "carbune",
-        "hidrocarburi",
-        "sold",
+    # Identificare coloană timestamp
+    time_cols = [
+        c
+        for c in df.columns
+        if any(k in c for k in ["data", "time", "date", "timp", "timestamp"])
     ]
-    for col in cols:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
+    if time_cols:
+        df["timestamp"] = pd.to_datetime(df[time_cols[0]], dayfirst=True)
+        df = df.sort_values("timestamp")
 
-    # Conform Transelectrica: Sold = Productie - Consum
-    # Sold > 0: Export | Sold < 0: Import
+    # Conversie coloane numerice
+    mapping = {
+        "consum": "consum",
+        "productie": "productie",
+        "eolian": "eolian",
+        "foto": "foto",
+        "solar": "foto",
+        "hidro": "hidro",
+        "ape": "hidro",
+        "nuclear": "nuclear",
+        "carbune": "carbune",
+        "hidrocarburi": "hidrocarburi",
+        "gaz": "hidrocarburi",
+        "sold": "sold",
+    }
+
+    for col in df.columns:
+        for key, target in mapping.items():
+            if key in col:
+                df[target] = pd.to_numeric(
+                    df[col].astype(str).str.replace(",", "."), errors="coerce"
+                )
+
+    # Convenția Transelectrica: Sold = Productie - Consum
+    if "sold" not in df.columns and "productie" in df and "consum" in df:
+        df["sold"] = df["productie"] - df["consum"]
+
+    # Status energetic
     df["status"] = df["sold"].apply(
         lambda v: "Export" if v > 0 else "Import" if v < 0 else "Echilibru"
     )
 
-    # Calcul surse variabile și sarcină reziduală
-    if "eolian" in df.columns and "foto" in df.columns:
-        df["variabil"] = df["eolian"].fillna(0) + df["foto"].fillna(0)
+    # Surse variabile și sarcină reziduală
+    eolian = df["eolian"].fillna(0) if "eolian" in df.columns else 0
+    foto = df["foto"].fillna(0) if "foto" in df.columns else 0
+    df["variabil"] = eolian + foto
+
+    if "consum" in df.columns:
         df["sarcina_reziduala"] = df["consum"] - df["variabil"]
 
     return df
 
 
-st.set_page_config(page_title="Dashboard SEN - Sold Energetic", layout="wide")
-st.title("⚡ SEN România: Analiza Exploratorie a Soldului (Import / Export)")
+@st.cache_data
+def get_synthetic_data() -> pd.DataFrame:
+    """Generează un set de date demonstrativ pe 1 an în absența unui fișier local."""
+    dates = pd.date_range(end=pd.Timestamp.now(), periods=52560, freq="10min")
+    n = len(dates)
+    np.random.seed(42)
 
-st.sidebar.header("Parametri analiză")
-start_date = st.sidebar.date_input(
-    "Data început", pd.to_datetime("today") - pd.Timedelta(days=7)
+    hour_factor = np.sin(np.linspace(0, 2 * np.pi * 365, n))
+    consum = 5500 + 1800 * np.sin(np.linspace(0, 2 * np.pi * 365 * 24, n))
+    eolian = np.clip(1200 + 1000 * np.sin(np.linspace(0, 50 * np.pi, n)), 0, None)
+    foto = np.clip(
+        2200
+        * np.sin(np.linspace(0, 2 * np.pi * 365 * 24, n))
+        * (dates.hour >= 6)
+        * (dates.hour <= 19),
+        0,
+        None,
+    )
+    hidro = 1800 + 400 * np.random.randn(n)
+    nuclear = np.full(n, 1400)
+    carbune = 1000 + 200 * np.random.randn(n)
+    hidrocarburi = 800 + 200 * np.random.randn(n)
+
+    prod = hidro + nuclear + carbune + hidrocarburi + eolian + foto
+    sold = prod - consum
+
+    return pd.DataFrame(
+        {
+            "timestamp": dates,
+            "consum": consum,
+            "productie": prod,
+            "carbune": carbune,
+            "hidrocarburi": hidrocarburi,
+            "hidro": hidro,
+            "nuclear": nuclear,
+            "eolian": eolian,
+            "foto": foto,
+            "sold": sold,
+        }
+    )
+
+
+# ----------------------------------------------------
+# 2. SELECȚIE SURSĂ DATE (SIDEBAR)
+# ----------------------------------------------------
+st.sidebar.header("📁 Sursă Date")
+uploaded_file = st.sidebar.file_uploader(
+    "Încarcă CSV Transelectrica (opțional)", type=["csv", "xlsx"]
 )
-end_date = st.sidebar.date_input("Data sfârșit", pd.to_datetime("today"))
 
-if start_date <= end_date:
-    df = load_data(start_date.isoformat(), end_date.isoformat())
+DEFAULT_FILE = "sen_istoric_1an.csv"
 
-    if not df.empty:
-        # ----------------------------------------------------
-        # 1. PROFILUL ORAR: VÂRF VS. GOL
-        # ----------------------------------------------------
-        st.header("1. Profilul orar al soldului și consumului")
-        df["ora"] = df["timestamp"].dt.hour
-        hourly_agg = (
-            df.groupby("ora")[["sold", "consum", "productie"]]
-            .mean()
-            .reset_index()
-        )
+if uploaded_file is not None:
+    raw_df = pd.read_csv(uploaded_file, sep=None, engine="python")
+    df_all = process_data(raw_df)
+    st.sidebar.success("Fișier încărcat manual!")
+elif os.path.exists(DEFAULT_FILE):
+    raw_df = pd.read_csv(DEFAULT_FILE, sep=None, engine="python")
+    df_all = process_data(raw_df)
+    st.sidebar.info(f"Se utilizează setul local: `{DEFAULT_FILE}`")
+else:
+    df_all = process_data(get_synthetic_data())
+    st.sidebar.warning("⚠️ Se utilizează date generate (pune fișierul în folder).")
 
-        fig_hourly = go.Figure()
-        fig_hourly.add_trace(
-            go.Scatter(
-                x=hourly_agg["ora"],
-                y=hourly_agg["sold"],
-                name="Sold Mediu (MW)",
-                line=dict(color="royalblue", width=3),
-            )
-        )
-        fig_hourly.add_trace(
-            go.Scatter(
-                x=hourly_agg["ora"],
-                y=hourly_agg["consum"],
-                name="Consum Mediu (MW)",
-                line=dict(color="firebrick", dash="dot"),
-                yaxis="y2",
-            )
-        )
+# ----------------------------------------------------
+# 3. FILTRARE PE INTERVAL DE TIMP
+# ----------------------------------------------------
+min_date = df_all["timestamp"].min().date()
+max_date = df_all["timestamp"].max().date()
 
-        fig_hourly.update_layout(
-            title="Soldul mediu orar vs. Profilul de consum",
-            xaxis=dict(title="Ora zilei (0 - 23)", tickmode="linear"),
-            yaxis=dict(
-                title="Sold (MW) [>0 Export / <0 Import]",
-                zeroline=True,
-                zerolinewidth=2,
-                zerolinecolor="gray",
-            ),
-            yaxis2=dict(
-                title="Consum (MW)", overlaying="y", side="right", showgrid=False
-            ),
-            hovermode="x unified",
-        )
-        st.plotly_chart(fig_hourly, use_container_width=True)
+st.sidebar.header("📅 Filtrare Perioadă")
+date_range = st.sidebar.date_input(
+    "Selectează intervalul",
+    value=(min_date, max_date),
+    min_value=min_date,
+    max_value=max_date,
+)
 
-        # ----------------------------------------------------
-        # 2. LEGĂTURA CU SURSELE VARIABILE (EOLIAN + FOTO)
-        # ----------------------------------------------------
-        st.header("2. Relația Sold – Surse Variabile (Eolian & Solar)")
-        c1, c2, c3 = st.columns(3)
-        c1.metric(
-            "Corelație Sold - Eolian",
-            f"{df['sold'].corr(df['eolian']):.3f}"
-            if "eolian" in df.columns
-            else "N/A",
-        )
-        c2.metric(
-            "Corelație Sold - Foto",
-            f"{df['sold'].corr(df['foto']):.3f}"
-            if "foto" in df.columns
-            else "N/A",
-        )
-        c3.metric(
-            "Corelație Sold - Sarcina Reziduală",
-            f"{df['sold'].corr(df['sarcina_reziduala']):.3f}"
-            if "sarcina_reziduala" in df.columns
-            else "N/A",
-        )
+if isinstance(date_range, tuple) and len(date_range) == 2:
+    start_d, end_d = date_range
+    df = df_all[
+        (df_all["timestamp"].dt.date >= start_d)
+        & (df_all["timestamp"].dt.date <= end_d)
+    ].copy()
+else:
+    df = df_all.copy()
 
-        fig_var = px.scatter(
-            df,
-            x="variabil",
-            y="sold",
-            color="status",
-            color_discrete_map={
-                "Import": "crimson",
-                "Export": "forestgreen",
-                "Echilibru": "gray",
-            },
-            hover_data=["timestamp", "consum", "productie"],
-            labels={
-                "variabil": "Producție Variabilă (Eolian + Foto) [MW]",
-                "sold": "Sold (MW)",
-            },
-            title="Distribuția soldului în funcție de producția regenerabilă variabilă",
-        )
-        fig_var.add_hline(y=0, line_dash="dash", line_color="black")
-        st.plotly_chart(fig_var, use_container_width=True)
+st.title("⚡ SEN România: Analiza Soldului Energetic (Import / Export)")
 
-        # ----------------------------------------------------
-        # 3. ORE PE ZI: IMPORT VS. EXPORT
-        # ----------------------------------------------------
-        st.header("3. Durata zilnică: Net Importator vs. Net Exportator")
+# ----------------------------------------------------
+# 4. RĂSPUNSURI LA ÎNTREBĂRILE EDA
+# ----------------------------------------------------
 
-        # Agregare la nivel de oră pentru a calcula corect numărul de ore
-        df["data"] = df["timestamp"].dt.date
-        df_hourly = (
-            df.set_index("timestamp")
-            .resample("1h")[["sold"]]
-            .mean()
-            .reset_index()
-        )
-        df_hourly["data"] = df_hourly["timestamp"].dt.date
-        df_hourly["status"] = df_hourly["sold"].apply(
-            lambda v: "Import" if v < 0 else "Export" if v > 0 else "Echilibru"
-        )
+# ÎNTREBAREA 1: Profilul orar
+st.subheader("1. Profilul orar al soldului: Vârf vs. Gol de consum")
+df["ora"] = df["timestamp"].dt.hour
+hourly_agg = df.groupby("ora")[["sold", "consum", "productie"]].mean().reset_index()
 
-        daily_hours = (
-            df_hourly.groupby(["data", "status"])
-            .size()
-            .unstack(fill_value=0)
-            .reset_index()
-        )
+fig_hourly = go.Figure()
+fig_hourly.add_trace(
+    go.Scatter(
+        x=hourly_agg["ora"],
+        y=hourly_agg["sold"],
+        name="Sold Mediu (MW)",
+        line=dict(color="#1f77b4", width=3),
+    )
+)
+fig_hourly.add_trace(
+    go.Scatter(
+        x=hourly_agg["ora"],
+        y=hourly_agg["consum"],
+        name="Consum Mediu (MW)",
+        line=dict(color="#d62728", dash="dot"),
+        yaxis="y2",
+    )
+)
+fig_hourly.update_layout(
+    xaxis=dict(title="Ora zilei (0 - 23)", tickmode="linear"),
+    yaxis=dict(
+        title="Sold (MW) [>0 Export / <0 Import]",
+        zeroline=True,
+        zerolinewidth=2,
+        zerolinecolor="gray",
+    ),
+    yaxis2=dict(
+        title="Consum (MW)", overlaying="y", side="right", showgrid=False
+    ),
+    hovermode="x unified",
+)
+st.plotly_chart(fig_hourly, use_container_width=True)
 
-        st.dataframe(
-            daily_hours.rename(
-                columns={"Import": "Ore Import / zi", "Export": "Ore Export / zi"}
-            ),
-            use_container_width=True,
-        )
+# ÎNTREBAREA 2: Relația cu sursele variabile
+st.subheader("2. Legătura dintre sold și sursele variabile (Eolian & Solar)")
+col_m1, col_m2, col_m3 = st.columns(3)
+if "eolian" in df.columns:
+    col_m1.metric("Corelație Sold – Eolian", round(df["sold"].corr(df["eolian"]), 3))
+if "foto" in df.columns:
+    col_m2.metric("Corelație Sold – Fotovoltaic", round(df["sold"].corr(df["foto"]), 3))
+if "sarcina_reziduala" in df.columns:
+    col_m3.metric(
+        "Corelație Sold – Sarcină Reziduală",
+        round(df["sold"].corr(df["sarcina_reziduala"]), 3),
+    )
 
-        # ----------------------------------------------------
-        # 4. VALORI MAXIME ȘI CONTEXT MIX ENERGETIC
-        # ----------------------------------------------------
-        st.header("4. Valori Maxime Înregistrate & Contextul Mixului")
+fig_scatter = px.scatter(
+    df,
+    x="variabil",
+    y="sold",
+    color="status",
+    color_discrete_map={"Import": "#d62728", "Export": "#2ca02c", "Echilibru": "#7f7f7f"},
+    labels={"variabil": "Producție Variabilă (Eolian + Foto) [MW]", "sold": "Sold (MW)"},
+    title="Distribuția soldului în funcție de regenerabilele variabile",
+)
+fig_scatter.add_hline(y=0, line_dash="dash", line_color="black")
+st.plotly_chart(fig_scatter, use_container_width=True)
 
-        max_export_row = df.loc[df["sold"].idxmax()]
-        max_import_row = df.loc[
-            df["sold"].idxmin()
-        ]  # Cel mai negativ = cel mai mare import
+# ÎNTREBAREA 3: Ore pe zi Import vs. Export
+st.subheader("3. Număr de ore/zi: Net Importator vs. Net Exportator")
+df_hourly = df.set_index("timestamp").resample("1h")[["sold"]].mean().reset_index()
+df_hourly["data"] = df_hourly["timestamp"].dt.date
+df_hourly["status"] = df_hourly["sold"].apply(
+    lambda v: "Import" if v < 0 else "Export" if v > 0 else "Echilibru"
+)
 
-        col_exp, col_imp = st.columns(2)
+daily_hours = (
+    df_hourly.groupby(["data", "status"])
+    .size()
+    .unstack(fill_value=0)
+    .reset_index()
+)
+for col in ["Import", "Export"]:
+    if col not in daily_hours.columns:
+        daily_hours[col] = 0
 
-        with col_exp:
-            st.success(
-                f"### 🟢 Maxim Export: {max_export_row['sold']:.1f} MW"
-            )
-            st.write(f"**Data/Ora:** {max_export_row['timestamp']}")
-            st.write(f"**Consum:** {max_export_row.get('consum', 'N/A')} MW")
-            st.write(
-                f"**Producție totală:** {max_export_row.get('productie', 'N/A')} MW"
-            )
-            st.write(
-                f"**Eolian + Foto:** {max_export_row.get('variabil', 'N/A')} MW"
-            )
+fig_hours = px.bar(
+    daily_hours,
+    x="data",
+    y=["Import", "Export"],
+    labels={"data": "Data", "value": "Număr ore / zi", "variable": "Regim"},
+    color_discrete_map={"Import": "#d62728", "Export": "#2ca02c"},
+    title="Bilanțul zilnic al orelor de funcționare",
+)
+st.plotly_chart(fig_hours, use_container_width=True)
 
-        with col_imp:
-            st.error(
-                f"### 🔴 Maxim Import: {abs(max_import_row['sold']):.1f} MW"
-            )
-            st.write(f"**Data/Ora:** {max_import_row['timestamp']}")
-            st.write(f"**Consum:** {max_import_row.get('consum', 'N/A')} MW")
-            st.write(
-                f"**Producție totală:** {max_import_row.get('productie', 'N/A')} MW"
-            )
-            st.write(
-                f"**Eolian + Foto:** {max_import_row.get('variabil', 'N/A')} MW"
-            )
+# ÎNTREBAREA 4: Valori maxime și context
+st.subheader("4. Valori Maxime Înregistrate & Contextul Mixului Energetic")
+idx_max_exp = df["sold"].idxmax()
+idx_max_imp = df["sold"].idxmin()
 
-    else:
-        st.info(
-            "Nu s-au putut încărca date pentru intervalul selectat. Verifică sursa de date."
-        )
+row_exp = df.loc[idx_max_exp]
+row_imp = df.loc[idx_max_imp]
+
+col_e, col_i = st.columns(2)
+with col_e:
+    st.success(f"### 🟢 Maxim Export: {row_exp['sold']:.1f} MW")
+    st.write(f"**Data / Ora:** {row_exp['timestamp']}")
+    st.write(f"**Consum:** {row_exp.get('consum', 'N/A')} MW")
+    st.write(f"**Producție totală:** {row_exp.get('productie', 'N/A')} MW")
+    st.write(f"**Eolian:** {row_exp.get('eolian', 0):.1f} MW | **Foto:** {row_exp.get('foto', 0):.1f} MW")
+
+with col_i:
+    st.error(f"### 🔴 Maxim Import: {abs(row_imp['sold']):.1f} MW")
+    st.write(f"**Data / Ora:** {row_imp['timestamp']}")
+    st.write(f"**Consum:** {row_imp.get('consum', 'N/A')} MW")
+    st.write(f"**Producție totală:** {row_imp.get('productie', 'N/A')} MW")
+    st.write(f"**Eolian:** {row_imp.get('eolian', 0):.1f} MW | **Foto:** {row_imp.get('foto', 0):.1f} MW")
