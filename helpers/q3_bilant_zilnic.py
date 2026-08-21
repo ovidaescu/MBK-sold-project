@@ -44,9 +44,11 @@ def print_q3(df):
         xaxis=dict(
             dtick="M1",
             tickformat="%b %Y", 
+            ticklabelmode="period",
             tickangle=0,
             hoverformat="%d %b %Y", 
-        ),
+        )
+        
     )
 
     st.plotly_chart(fig_hours, use_container_width=True)
