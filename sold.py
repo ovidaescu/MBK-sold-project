@@ -21,8 +21,8 @@ def load_any_file(file_source):
         name = str(file_source).lower()
 
     if name.endswith(".xlsx") or name.endswith(".xls"):
-        if hasattr(file_source, "seek"):
-            file_source.seek(0)
+        if hasattr(file_source, "seek"): # chech if the file-like object supports seek
+            file_source.seek(0) # start reading from the beginning of the file
         return pd.read_excel(file_source)
 
     # Fallback CSV
@@ -38,10 +38,10 @@ def process_data(df: pd.DataFrame) -> pd.DataFrame:
     """Normalizează coloanele și calculează variabilele derivate."""
     # Normalizare nume coloane
     df.columns = (
-        df.columns.str.strip()
+        df.columns.str.strip() # removes leading and trailing whitespace
         .str.lower()
-        .str.replace(r"\[.*\]", "", regex=True)
-        .str.strip()
+        .str.replace(r"\[.*\]", "", regex=True) # removes any text within square brackets
+        .str.strip() # removes leading and trailing whitespace again after removing brackets
     )
 
     # Identificare coloană timestamp
@@ -73,17 +73,20 @@ def process_data(df: pd.DataFrame) -> pd.DataFrame:
     for col in df.columns:
         for key, target in mapping.items():
             if key in col:
+                # converts the column to numeric, replacing commas with dots for decimal conversion
                 df[target] = pd.to_numeric(
-                    df[col].astype(str).str.replace(",", "."), errors="coerce"
+                    df[col].astype(str).str.replace(",", "."), errors="coerce" # replace commas with dots for decimal conversion
                 )
+                # .astype(str) is used to ensure that the replacement works even if the column is not of string type initially and can t be converted to numerical values
 
     # Convenția Transelectrica: Sold = Productie - Consum
     if "sold" not in df.columns and "productie" in df and "consum" in df:
         df["sold"] = df["productie"] - df["consum"]
 
     # Status energetic
+    # lambda function is used to apply a condition to each value in the "sold" column, returning "Export" if the value is greater than 0, "Import" if less than 0, and "Echilibru" if equal to 0
     df["status"] = df["sold"].apply(
-        lambda v: "Export" if v > 0 else "Import" if v < 0 else "Echilibru"
+        lambda v: "Import" if v > 0 else "Export" if v < 0 else "Echilibru"
     )
 
     # Surse variabile și sarcină reziduală
@@ -156,7 +159,7 @@ if uploaded_file is not None:
     raw_df = load_any_file(uploaded_file)
     df_all = process_data(raw_df)
     st.sidebar.success("Fișier încărcat manual!")
-elif os.path.exists(DEFAULT_FILE):
+elif os.path.exists(DEFAULT_FILE): # check if the default file exists in the root directory
     raw_df = load_any_file(DEFAULT_FILE)
     df_all = process_data(raw_df)
     st.sidebar.info(f"Se utilizează setul local: `{DEFAULT_FILE}`")
@@ -172,9 +175,12 @@ if df_all is None or df_all.empty:
 # ----------------------------------------------------
 # 3. FILTRARE PE INTERVAL DE TIMP
 # ----------------------------------------------------
-min_timestamp = df_all["timestamp"].min()
+
+#d timestamp = date + time
+min_timestamp = df_all["timestamp"].min() 
 max_timestamp = df_all["timestamp"].max()
 
+# only dates
 min_date = min_timestamp.date()
 max_date = max_timestamp.date()
 
@@ -187,12 +193,12 @@ calendar_key = f"date_picker_{min_date}_{max_date}"
 date_range = st.sidebar.date_input(
     "Selectează intervalul",
     value=(min_date, max_date),
-    min_value=min_date,
-    max_value=max_date,
-    key=calendar_key
+    min_value=min_date, # set the minimum selectable date to the earliest date in the dataset
+    max_value=max_date, # set the maximum selectable date to the latest date in the dataset
+    key=calendar_key # unique key to reset the date picker when the file changes
 )
 
-
+# get the start and end times from the sidebar, defaulting to the min and max timestamps of the dataset
 start_time = st.sidebar.time_input(
     "Ora de început",
     value=min_timestamp.time().replace(second=0, microsecond=0),
@@ -203,7 +209,7 @@ end_time = st.sidebar.time_input(
     value=max_timestamp.time().replace(second=0, microsecond=0),
 )
 
-if isinstance(date_range, tuple) and len(date_range) == 2:
+if isinstance(date_range, tuple) and len(date_range) == 2: # check if the date_range is a tuple of length 2
     start_date, end_date = date_range
 
     start_datetime = datetime.combine(start_date, start_time)
@@ -213,7 +219,7 @@ if isinstance(date_range, tuple) and len(date_range) == 2:
         st.error("Ora de început trebuie să fie înaintea orei de sfârșit.")
         st.stop()
 
-    # Include the complete selected ending minute
+    # Include the complete selected ending minute by adding one minute to the end_datetime for filtering
     end_datetime_exclusive = end_datetime + timedelta(minutes=1)
 
     df = df_all[
@@ -243,6 +249,7 @@ st.title("⚡ SEN România: Analiza Soldului Energetic (Import / Export)")
 # ÎNTREBAREA 1: Profilul orar
 st.subheader("1. Profilul orar al soldului: Vârf vs. Gol de consum")
 df["ora"] = df["timestamp"].dt.hour
+# group by hour and calculate the mean of sold, consum, and productie columns, then reset the index to get a clean DataFrame
 hourly_agg = df.groupby("ora")[["sold", "consum", "productie"]].mean().reset_index()
 
 fig_hourly = go.Figure()
@@ -266,7 +273,7 @@ fig_hourly.add_trace(
 fig_hourly.update_layout(
     xaxis=dict(title="Ora zilei (0 - 23)", tickmode="linear"),
     yaxis=dict(
-        title="Sold (MW) [>0 Export / <0 Import]",
+        title="Sold (MW) [>0 Import / <0 Export]",
         zeroline=True,
         zerolinewidth=2,
         zerolinecolor="gray",
@@ -274,7 +281,7 @@ fig_hourly.update_layout(
     yaxis2=dict(
         title="Consum (MW)", overlaying="y", side="right", showgrid=False
     ),
-    hovermode="x unified",
+    hovermode="x unified", # this ensures that when you hover over the graph, it shows the values for all traces at that x-coordinate
 )
 st.plotly_chart(fig_hourly, use_container_width=True)
 
@@ -282,6 +289,7 @@ st.plotly_chart(fig_hourly, use_container_width=True)
 st.subheader("2. Legătura dintre sold și sursele variabile (Eolian & Solar)")
 col_m1, col_m2, col_m3 = st.columns(3)
 if "eolian" in df.columns:
+    # calculate the correlation between the "sold" and "eolian" columns, round it to 3 decimal places, and display it in the first metric column
     col_m1.metric("Corelație Sold – Eolian", round(df["sold"].corr(df["eolian"]), 3))
 if "foto" in df.columns:
     col_m2.metric("Corelație Sold – Fotovoltaic", round(df["sold"].corr(df["foto"]), 3))
@@ -295,7 +303,7 @@ fig_scatter = px.scatter(
     df,
     x="variabil",
     y="sold",
-    color="status",
+    color="status", # color the points based on the "status" column, which indicates whether the sold is Import, Export, or Echilibru
     color_discrete_map={"Import": "#d62728", "Export": "#2ca02c", "Echilibru": "#7f7f7f"},
     labels={"variabil": "Producție Variabilă (Eolian + Foto) [MW]", "sold": "Sold (MW)"},
     title="Distribuția soldului în funcție de regenerabilele variabile",
@@ -308,7 +316,7 @@ st.subheader("3. Număr de ore/zi: Net Importator vs. Net Exportator")
 df_hourly = df.set_index("timestamp").resample("1h")[["sold"]].mean().reset_index()
 df_hourly["data"] = df_hourly["timestamp"].dt.date
 df_hourly["status"] = df_hourly["sold"].apply(
-    lambda v: "Import" if v < 0 else "Export" if v > 0 else "Echilibru"
+    lambda v: "Import" if v > 0 else "Export" if v < 0 else "Echilibru"
 )
 
 daily_hours = (
@@ -333,22 +341,25 @@ st.plotly_chart(fig_hours, use_container_width=True)
 
 # ÎNTREBAREA 4: Valori maxime și context
 st.subheader("4. Valori Maxime Înregistrate & Contextul Mixului Energetic")
-idx_max_exp = df["sold"].idxmax()
-idx_max_imp = df["sold"].idxmin()
+#idx_max_exp = df["sold"].idxmax()
+#idx_max_imp = df["sold"].idxmin()
+
+idx_max_exp = df["sold"].idxmin() # Exportul e negativ, deci căutăm minimul
+idx_max_imp = df["sold"].idxmax() # Importul e pozitiv, deci căutăm maximul
 
 row_exp = df.loc[idx_max_exp]
 row_imp = df.loc[idx_max_imp]
 
 col_e, col_i = st.columns(2)
 with col_e:
-    st.success(f"### 🟢 Maxim Export: {row_exp['sold']:.1f} MW")
+    st.success(f"### 🟢 Maxim Export: {abs(row_exp['sold']):.1f} MW")
     st.write(f"**Data / Ora:** {row_exp['timestamp']}")
     st.write(f"**Consum:** {row_exp.get('consum', 'N/A')} MW")
     st.write(f"**Producție totală:** {row_exp.get('productie', 'N/A')} MW")
     st.write(f"**Eolian:** {row_exp.get('eolian', 0):.1f} MW | **Foto:** {row_exp.get('foto', 0):.1f} MW")
 
 with col_i:
-    st.error(f"### 🔴 Maxim Import: {abs(row_imp['sold']):.1f} MW")
+    st.error(f"### 🔴 Maxim Import: {row_imp['sold']:.1f} MW")
     st.write(f"**Data / Ora:** {row_imp['timestamp']}")
     st.write(f"**Consum:** {row_imp.get('consum', 'N/A')} MW")
     st.write(f"**Producție totală:** {row_imp.get('productie', 'N/A')} MW")
