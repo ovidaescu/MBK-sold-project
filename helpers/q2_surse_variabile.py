@@ -17,14 +17,50 @@ def print_q2(df):
             round(df["sold"].corr(df["sarcina_reziduala"]), 3),
         )
 
+    st.markdown("---") # delimitation line
+
+    # selectbox to choose which variable to plot on the X-axis
+    optiune_grafic = st.selectbox(
+        "Alege ce dorești să analizezi pe axa orizontală (X):",
+        options=["Cumulat (Eolian + Fotovoltaic)", "Doar Eolian", "Doar Fotovoltaic", "Sarcină Reziduală"],
+    )
+
+    # logic for changing the X-axis variable based on the selected option
+    if optiune_grafic == "Cumulat (Eolian + Fotovoltaic)":
+        coloana_x = "variabil"
+        eticheta_x = "Producție Variabilă (Eolian + Foto) [MW]"
+    elif optiune_grafic == "Doar Eolian":
+        coloana_x = "eolian"
+        eticheta_x = "Producție Eoliană [MW]"
+    elif optiune_grafic == "Doar Fotovoltaic":
+        coloana_x = "foto"
+        eticheta_x = "Producție Fotovoltaică [MW]"
+    else :
+        coloana_x = "sarcina_reziduala"
+        eticheta_x = "Sarcină Reziduală [MW]"
+
     fig_scatter = px.scatter(
         df,
-        x="variabil",
+        x = coloana_x, #x="variabil",
         y="sold",
         color="status", # color the points based on the "status" column, which indicates whether the sold is Import, Export, or Echilibru
         color_discrete_map={"Import": "#d62728", "Export": "#2ca02c", "Echilibru": "#7f7f7f"},
-        labels={"variabil": "Producție Variabilă (Eolian + Foto) [MW]", "sold": "Sold (MW)"},
+        #labels={"variabil": "Producție Variabilă (Eolian + Foto) [MW]", "sold": "Sold (MW)"},
+        labels={coloana_x: eticheta_x, "sold": "Sold (MW)"},
         title="Distribuția soldului în funcție de regenerabilele variabile",
     )
+
+    # delete this line if you want to keep the default legend title
+    fig_scatter.update_traces(
+        marker=dict(
+            size=6,             # Mărimea punctului (o poți crește dacă vrei să fie mai vizibile)
+            opacity=1.0,        # Eliminăm transparența (puncte solide)
+            line=dict(
+                width=0.8,      # Grosimea conturului (0.8 sau 1 este ideal pentru multe puncte)
+                color='black'   # Culoarea conturului (negru ajută culorile roșu/verde să iasă în evidență)
+            )
+        )
+    )
+
     fig_scatter.add_hline(y=0, line_dash="dash", line_color="black")
     st.plotly_chart(fig_scatter, use_container_width=True)
