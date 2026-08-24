@@ -37,13 +37,15 @@ def print_q3(df):
 
     first_month = pd.Timestamp(daily_hours["data"].min()).replace(day=1)
     last_month = pd.Timestamp(daily_hours["data"].max()).replace(day=1)
-    for month_start in pd.date_range(first_month, last_month, freq="MS"): # MS = Month Start, so add a line for each month start
-        fig_hours.add_vline(
-            x=month_start,
-            line_width=1,
-            line_dash="dash",
-            line_color="rgba(255, 255, 255, 0.45)",
-        )
+    if last_month != first_month:
+        # first_month + pd.offsets.MonthBegin(1) - to skip the line for January, otherwise just first_month 
+        for month_start in pd.date_range(first_month + pd.offsets.MonthBegin(1), last_month, freq="MS"): # MS = Month Start, so add a line for each month start
+            fig_hours.add_vline(
+                x=month_start,
+                line_width=1,
+                line_dash="dash",
+                line_color="rgba(255, 255, 255, 0.45)",
+            )
 
     # setting for the axis
     fig_hours.update_layout(
