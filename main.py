@@ -111,3 +111,6 @@ st.divider()
 print_q3(df)
 st.divider()
 print_q4(df)
+
+#print(df)
+#print(df.columns.tolist())
