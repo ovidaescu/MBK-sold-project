@@ -40,3 +40,11 @@ def print_q1(df):
         hovermode="x unified", # this ensures that when you hover over the graph, it shows the values for all traces at that x-coordinate
     )
     st.plotly_chart(fig_hourly, use_container_width=True)
+
+    st.info("""
+            **Răspuns direct:** Da, importăm masiv la vârfurile de consum, iar exportul se realizează exclusiv pe un gol de cerere (dar un gol atipic, de prânz).
+
+            **Concluzia analizei:**
+            * **La vârf de consum (08:00-09:00 și 19:00-21:00):** România este **net importatoare**. Curba soldului o urmărește fidel pe cea a consumului, atingând un deficit mediu de peste 1000 MW seara.
+            * **În golul de consum (11:00-14:00):** Sistemul devine **net exportator**. Este interesant de observat că exportul nu are loc noaptea (când consumul e minim - orele 01:00-05:00), ci la mijlocul zilei, fiind susținut puternic de vârful de producție fotovoltaică.
+            """)
