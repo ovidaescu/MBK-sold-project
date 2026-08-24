@@ -37,7 +37,7 @@ def print_q3(df):
 
     first_month = pd.Timestamp(daily_hours["data"].min()).replace(day=1)
     last_month = pd.Timestamp(daily_hours["data"].max()).replace(day=1)
-    for month_start in pd.date_range(first_month, last_month, freq="MS"):
+    for month_start in pd.date_range(first_month, last_month, freq="MS"): # MS = Month Start, so add a line for each month start
         fig_hours.add_vline(
             x=month_start,
             line_width=1,
