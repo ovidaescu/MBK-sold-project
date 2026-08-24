@@ -65,3 +65,12 @@ def print_q3(df):
     )
 
     st.plotly_chart(fig_hours, use_container_width=True)
+
+    st.info("""
+        **Răspuns direct:** Suntem net importatori pentru majoritatea orelor dintr-o zi. Graficul demonstrează un deficit structural, importul dominând vizual pe aproape tot parcursul anului.
+
+        **Detaliile analizei:**
+        * **Dominanța importurilor (Zilele Roșii):** În cea mai mare parte a anului, România importă energie între 16 și 24 de ore pe zi. Zilele cu 24 de ore de import continuu sunt frecvente, în special în lunile de iarnă și în verile toride (iulie-august).
+        * **Ferestrele de export (Zilele Verzi):** Exportul devine majoritar (peste 12-16 ore/zi) doar în anumite ferestre sezoniere scurte, cu precădere primăvara (martie - mai) și toamna. Aceste perioade coincid cu un consum moderat și o producție ridicată din surse regenerabile.
+        * **Echilibrul (Gri):** Momentele de echilibru perfect (sold zero) sunt extrem de rare, apărând doar ca zone de tranziție scurte între import și export.
+        """)
