@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import plotly.express as px
 
 # ÎNTREBAREA 3: Ore pe zi Import vs. Export
@@ -33,6 +34,16 @@ def print_q3(df):
         color_discrete_map={"Import": "#d62728", "Export": "#2ca02c", "Echilibru": "#7f7f7f"},
         title="Bilanțul zilnic al orelor de funcționare",
     )
+
+    first_month = pd.Timestamp(daily_hours["data"].min()).replace(day=1)
+    last_month = pd.Timestamp(daily_hours["data"].max()).replace(day=1)
+    for month_start in pd.date_range(first_month, last_month, freq="MS"):
+        fig_hours.add_vline(
+            x=month_start,
+            line_width=1,
+            line_dash="dash",
+            line_color="rgba(255, 255, 255, 0.45)",
+        )
 
     # setting for the axis
     fig_hours.update_layout(
