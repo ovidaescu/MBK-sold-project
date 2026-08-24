@@ -64,3 +64,12 @@ def print_q2(df):
 
     fig_scatter.add_hline(y=0, line_dash="dash", line_color="black")
     st.plotly_chart(fig_scatter, use_container_width=True)
+
+    st.info("""
+        **Răspuns direct:** Da, importăm masiv atunci când producția eoliană este scăzută. Există o legătură invers proporțională clară între sursele variabile și nivelul soldului.
+
+        **Detaliile analizei:**
+        * **Dependența de vreme:** Graficul arată că cele mai mari valori de import (punctele roșii, > 2000 MW) se înregistrează exclusiv în momentele în care producția variabilă (în special eolianul) este aproape de zero.
+        * **Confirmarea matematică:** Corelația de -0.559 dintre sold și eolian demonstrează tendința sistemului de a trece pe export (valori negative ale soldului) pe măsură ce producția eoliană crește.
+        * **Pragul de siguranță:** Se observă vizual că atunci când producția din surse variabile depășește pragul de 1500 - 2000 MW, punctele roșii (importurile) devin o raritate, rețeaua fiind dominată de puncte verzi (export cert).
+        """)
