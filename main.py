@@ -86,6 +86,7 @@ if isinstance(date_range, tuple) and len(date_range) == 2: # check if the date_r
     # Include the complete selected ending minute by adding one minute to the end_datetime for filtering
     end_datetime_exclusive = end_datetime + timedelta(minutes=1)
 
+    # new dataframe filtered by the selected date and time range
     df = df_all[
         (df_all["timestamp"] >= start_datetime)
         & (df_all["timestamp"] < end_datetime_exclusive)

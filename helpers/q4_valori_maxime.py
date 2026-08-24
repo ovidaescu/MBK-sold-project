@@ -2,9 +2,6 @@ import streamlit as st
 import plotly.express as px
 
 def create_mix_pie_chart(row, title):
-
-
-
     #print("\n--- PIE CHART DEBUG ---")
     #print("APE:", row.get("ape", 0))
     #print("HIDRO:", row.get("hidro", 0))

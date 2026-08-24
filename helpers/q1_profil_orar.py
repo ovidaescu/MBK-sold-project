@@ -30,12 +30,12 @@ def print_q1(df):
         xaxis=dict(title="Ora zilei (0 - 23)", tickmode="linear"),
         yaxis=dict(
             title="Sold (MW) [>0 Import / <0 Export]",
-            zeroline=True,
+            zeroline=True, # draw a line at y=0 to indicate the balance point between import and export
             zerolinewidth=2,
             zerolinecolor="gray",
         ),
         yaxis2=dict(
-            title="Consum (MW)", overlaying="y", side="right", showgrid=False
+            title="Consum (MW)", overlaying="y", side="right", showgrid=False # overlaying - place the second Y-axis over the same plotting area as the first Y-axis
         ),
         hovermode="x unified", # this ensures that when you hover over the graph, it shows the values for all traces at that x-coordinate
     )

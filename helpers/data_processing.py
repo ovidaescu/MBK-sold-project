@@ -9,6 +9,7 @@ def load_any_file(file_source):
     else:
         name = str(file_source).lower()
 
+    # seek is only used for file-like objects, not for strings or paths
     if name.endswith(".xlsx") or name.endswith(".xls"):
         if hasattr(file_source, "seek"): # chech if the file-like object supports seek
             file_source.seek(0) # start reading from the beginning of the file
@@ -16,7 +17,9 @@ def load_any_file(file_source):
 
     # Fallback CSV
     if hasattr(file_source, "seek"):
+        #print("seek was used")
         file_source.seek(0)
+    #print("Loading CSV file...")
     return pd.read_csv(file_source, sep=None, engine="python")
 
 
@@ -41,7 +44,7 @@ def process_data(df: pd.DataFrame) -> pd.DataFrame:
         if any(k in c for k in ["data", "time", "date", "timp", "timestamp"])
     ]
     if time_cols:
-        df["timestamp"] = pd.to_datetime(df[time_cols[0]], dayfirst=True)
+        df["timestamp"] = pd.to_datetime(df[time_cols[0]], dayfirst=True) # dayfirst=True is used to correctly parse dates in the format DD/MM/YYYY
         df = df.sort_values("timestamp")
 
     # Conversie coloane numerice
@@ -67,11 +70,13 @@ def process_data(df: pd.DataFrame) -> pd.DataFrame:
                 df[target] = pd.to_numeric(
                     df[col].astype(str).str.replace(",", "."), errors="coerce" # replace commas with dots for decimal conversion
                 )
+                # .astype(str) converts everything to strings first.
                 # .astype(str) is used to ensure that the replacement works even if the column is not of string type initially and can t be converted to numerical values
+                # errors="coerce" will convert any non-numeric values to NaN, preventing errors during the conversion process.s
 
     # Convenția Transelectrica: Sold = Productie - Consum
     if "sold" not in df.columns and "productie" in df and "consum" in df:
-        df["sold"] = df["productie"] - df["consum"]
+        df["sold"] = df["consum"] - df["prouductie"] # sold is calculated as the difference between consumption and production, following the convention of Transelectrica
 
     # Status energetic
     # lambda function is used to apply a condition to each value in the "sold" column, returning "Export" if the value is greater than 0, "Import" if less than 0, and "Echilibru" if equal to 0
