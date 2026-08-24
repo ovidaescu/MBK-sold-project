@@ -78,3 +78,13 @@ def print_q4(df):
         st.markdown("---")
         fig_imp = create_mix_pie_chart(row_imp, "Proporții Mix Energetic")
         st.plotly_chart(fig_imp, use_container_width=True)
+
+    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
+
+    st.info("""
+        **Răspuns direct:** Extremele rețelei au fost un export maxim de 2900 MW și un import maxim de 2953 MW, ambele fiind dictate de o combinație clară între nivelul consumului și disponibilitatea surselor regenerabile.
+
+        **Contextul extremelor:**
+        * **Context Maxim Export (Surplus):** A apărut primăvara, la mijlocul zilei (23 martie, ora 12:54). Consumul național era la un nivel foarte redus (doar 4762 MW). În același timp, natura a oferit o producție uriașă: energia eoliană a reprezentat cea mai mare felie a mixului (34.2%), ajutată de fotovoltaic.
+        * **Context Maxim Import (Deficit):** A apărut iarna, la vârful de seară (25 februarie, ora 18:44). Consumul a explodat la aproape 8500 MW. Din cauza întunericului și lipsei de vânt, producția eoliană și solară a fost practic zero (sub 1.25% din mix). Deficitul masiv a trebuit acoperit din import, în ciuda funcționării la capacitate a centralelor pe hidrocarburi, cărbune și hidro.
+        """)
