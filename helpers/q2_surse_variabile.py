@@ -5,17 +5,23 @@ import plotly.express as px
 # ÎNTREBAREA 2: Relația cu sursele variabile
 def print_q2(df):
     st.subheader("2. Legătura dintre sold și sursele variabile (Eolian & Solar)")
-    col_m1, col_m2, col_m3 = st.columns(3)
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     if "eolian" in df.columns:
         # calculate the correlation between the "sold" and "eolian" columns, round it to 3 decimal places, and display it in the first metric column
         col_m1.metric("Corelație Sold – Eolian", round(df["sold"].corr(df["eolian"]), 3))
     if "foto" in df.columns:
         col_m2.metric("Corelație Sold – Fotovoltaic", round(df["sold"].corr(df["foto"]), 3))
-    if "sarcina_reziduala" in df.columns:
+    if "variabil" in df.columns:
         col_m3.metric(
+            "Corelație Sold – Variabil (Eolian + Foto)",
+            round(df["sold"].corr(df["variabil"]), 3),
+        )
+    if "sarcina_reziduala" in df.columns:
+        col_m4.metric(
             "Corelație Sold – Sarcină Reziduală",
             round(df["sold"].corr(df["sarcina_reziduala"]), 3),
         )
+
 
     st.markdown("---") # delimitation line
 

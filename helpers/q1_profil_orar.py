@@ -8,6 +8,7 @@ def print_q1(df):
     # group by hour and calculate the mean of sold, consum, and productie columns, then reset the index to get a clean DataFrame
     hourly_agg = df.groupby("ora")[["sold", "consum", "productie"]].mean().reset_index()
 
+    # by default go scatter will create a line plot
     fig_hourly = go.Figure()
     fig_hourly.add_trace(
         go.Scatter(

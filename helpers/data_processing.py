@@ -25,7 +25,7 @@ def load_any_file(file_source):
 
 
 
-
+# cache the processed data to avoid reprocessing on every rerun
 @st.cache_data
 def process_data(df: pd.DataFrame) -> pd.DataFrame:
     """Normalizează coloanele și calculează variabilele derivate."""
