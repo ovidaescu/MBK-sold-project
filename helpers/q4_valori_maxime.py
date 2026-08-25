@@ -56,6 +56,15 @@ def print_q4(df):
         st.write(f" **Cărbune:** {row_exp.get('carbune', 0):.0f} MW |  **Hidrocarburi:** {row_exp.get('hidrocarburi', 0):.0f} MW")
         st.write(f" **Biomasă:** {row_exp.get('biomasa', 0):.0f} MW")
 
+        # compute deviation for export row: consum_teoretic_e = productie + sold, then compare with consum to see the deviation
+        consum_teoretic_e = row_exp['productie'] + row_exp['sold'] 
+        deviatie_e = abs(row_exp['consum'] - consum_teoretic_e)
+        
+        with st.expander("Verificare de consistență a datelor"):
+            st.write(f"Conform ecuației: `Producție + Sold ≈ Consum`")
+            st.write(f"**Calcul:** {row_exp['productie']:.0f} + ({row_exp['sold']:.0f}) = {consum_teoretic_e:.0f} MW")
+            st.caption(f"*Deviație de {deviatie_e:.0f} MW față de consumul măsurat ({row_exp['consum']:.0f} MW), cauzată de pierderile din rețea și marja senzorilor.*")
+
         st.markdown("---")
         fig_exp = create_mix_pie_chart(row_exp, "Proporții Mix Energetic")
         st.plotly_chart(fig_exp, use_container_width=True)
@@ -71,6 +80,15 @@ def print_q4(df):
         st.write(f" **Hidro:** {row_imp.get('hidro', 0):.0f} MW |  **Nuclear:** {row_imp.get('nuclear', 0):.0f} MW")
         st.write(f" **Cărbune:** {row_imp.get('carbune', 0):.0f} MW |  **Hidrocarburi:** {row_imp.get('hidrocarburi', 0):.0f} MW")
         st.write(f" **Biomasă:** {row_imp.get('biomasa', 0):.0f} MW")
+
+        # compute deviation for import row: consum_teoretic_i = productie + sold, then compare with consum to see the deviation
+        consum_teoretic_i = row_imp['productie'] + row_imp['sold'] 
+        deviatie_i = abs(row_imp['consum'] - consum_teoretic_i)
+        
+        with st.expander("Verificare de consistență a datelor"):
+            st.write(f"Conform ecuației: `Producție + Sold ≈ Consum`")
+            st.write(f"**Calcul:** {row_imp['productie']:.0f} + {row_imp['sold']:.0f} = {consum_teoretic_i:.0f} MW")
+            st.caption(f"*Deviație de {deviatie_i:.0f} MW față de consumul măsurat ({row_imp['consum']:.0f} MW), justificată prin pierderile tehnologice.*")
 
         st.markdown("---")
         fig_imp = create_mix_pie_chart(row_imp, "Proporții Mix Energetic")
